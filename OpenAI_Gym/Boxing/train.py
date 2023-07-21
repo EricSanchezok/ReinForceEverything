@@ -74,12 +74,12 @@ if __name__ == '__main__':
     actor_lr = 3e-5
     critic_lr = 3e-4
     num_episodes = 10000
-    max_step_per_epoch = 2000
+    max_step_per_epoch = 1790
     gamma = 0.98
     tau = 0.005
-    buffer_size = 10000
+    buffer_size = 50000
     minimal_size = 1000
-    batch_size = 1
+    batch_size = 16
     sigma = 0.01
 
     env_name = 'ALE/Boxing-v5'
