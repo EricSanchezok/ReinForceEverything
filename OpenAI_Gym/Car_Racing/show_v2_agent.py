@@ -25,11 +25,11 @@ if __name__ == '__main__':
     env = gym.make(env_name, render_mode='human')
     agent = DDPG(action_dim, action_bound, sigma, actor_lr, critic_lr, tau, gamma, device)
 
-    agent.actor.load_state_dict(torch.load('agent_v2/conv_actor_v2.pth', map_location=torch.device(device)))
-    agent.critic.load_state_dict(torch.load('agent_v2/conv_critic_v2.pth', map_location=torch.device(device)))
+    agent.actor.load_state_dict(torch.load('OpenAI_Gym/Car_Racing/agent_v2/conv_actor_v2.pth', map_location=torch.device(device)))
+    agent.critic.load_state_dict(torch.load('OpenAI_Gym/Car_Racing/agent_v2/conv_critic_v2.pth', map_location=torch.device(device)))
 
-    agent.target_actor.load_state_dict(torch.load('agent_v2/conv_actor_v2.pth', map_location=torch.device(device)))
-    agent.target_critic.load_state_dict(torch.load('agent_v2/conv_critic_v2.pth', map_location=torch.device(device)))
+    agent.target_actor.load_state_dict(torch.load('OpenAI_Gym/Car_Racing/agent_v2/conv_actor_v2.pth', map_location=torch.device(device)))
+    agent.target_critic.load_state_dict(torch.load('OpenAI_Gym/Car_Racing/agent_v2/conv_critic_v2.pth', map_location=torch.device(device)))
 
 
     for i in range(20):

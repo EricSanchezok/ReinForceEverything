@@ -11,11 +11,11 @@ def train_off_policy_agent(env_name, replay_buffer, actor_lr, critic_lr, num_epi
 
     # 检查有没有之前训练的模型，有的话就加载
     try:
-        agent.actor.load_state_dict(torch.load('agent_v2/conv_actor_v2.pth', map_location=torch.device(device)))
-        agent.critic.load_state_dict(torch.load('agent_v2/conv_critic_v2.pth', map_location=torch.device(device)))
+        agent.actor.load_state_dict(torch.load('OpenAI_Gym/Car_Racing/agent_v2/conv_actor_v2.pth', map_location=torch.device(device)))
+        agent.critic.load_state_dict(torch.load('OpenAI_Gym/Car_Racing/agent_v2/conv_critic_v2.pth', map_location=torch.device(device)))
 
-        agent.target_actor.load_state_dict(torch.load('agent_v2/conv_actor_v2.pth', map_location=torch.device(device)))
-        agent.target_critic.load_state_dict(torch.load('agent_v2/conv_critic_v2.pth', map_location=torch.device(device)))
+        agent.target_actor.load_state_dict(torch.load('OpenAI_Gym/Car_Racing/agent_v2/conv_actor_v2.pth', map_location=torch.device(device)))
+        agent.target_critic.load_state_dict(torch.load('OpenAI_Gym/Car_Racing/agent_v2/conv_critic_v2.pth', map_location=torch.device(device)))
     
         print('Model loaded!')
     except:
@@ -76,8 +76,8 @@ def train_off_policy_agent(env_name, replay_buffer, actor_lr, critic_lr, num_epi
 
         # Save the model
         if i % 10 == 0:
-            torch.save(agent.actor.state_dict(), 'agent_v2/conv_actor_v2.pth')
-            torch.save(agent.critic.state_dict(), 'agent_v2/conv_critic_v2.pth')
+            torch.save(agent.actor.state_dict(), 'OpenAI_Gym/Car_Racing/agent_v2/conv_actor_v2.pth')
+            torch.save(agent.critic.state_dict(), 'OpenAI_Gym/Car_Racing/agent_v2/conv_critic_v2.pth')
             print('Model saved!')
 
 

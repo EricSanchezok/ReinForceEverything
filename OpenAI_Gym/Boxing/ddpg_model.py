@@ -3,6 +3,8 @@ from torch import nn
 import random
 import numpy as np
 import collections
+import time
+from pyinstrument import Profiler
 
 
 class ReplayBuffer:
@@ -145,7 +147,6 @@ class QValueNet(torch.nn.Module):
         )
 
 
-
     def forward(self, x, a):
         x = x.permute(0, 3, 1, 2)
         x = self.conv1(x)
@@ -162,7 +163,7 @@ class QValueNet(torch.nn.Module):
 
         return out
     
-
+profile = Profiler()
 class DDPG:
     ''' DDPG算法 '''
     def __init__(self, action_dim, random_rate, sigma, actor_lr, critic_lr, tau, gamma, device):
@@ -187,28 +188,31 @@ class DDPG:
         self.critic_mse_loss = nn.MSELoss().to(device)
 
     def take_action(self, state, noise=True):
+
         if random.random() < self.random_rate and noise:
-            action = np.random.uniform(-1, 1, self.action_dim)
+            action = np.random.uniform(0, 1, self.action_dim)
+            action = torch.softmax(torch.tensor(action, dtype=torch.float32), dim=0).numpy()
         else:
-            state = torch.FloatTensor(state).unsqueeze(0)
-
-            state = state.to(self.device)
-
-            action = self.actor(state).cpu().detach().numpy()[0]
-        # 选择action中最大值的下标作为action
+            with torch.no_grad():
+                state = torch.tensor(np.array(state), dtype=torch.float32).to(self.device).unsqueeze(0)
+                state = state.to(self.device)
+                action = self.actor(state).cpu().numpy()[0]
 
         return action
 
     def soft_update(self, net, target_net):
+        
         for param_target, param in zip(target_net.parameters(), net.parameters()):
             param_target.data.copy_(param_target.data * (1.0 - self.tau) + param.data * self.tau)
 
+
+
     def update(self, transition_dict):
-        states = torch.tensor(np.array(transition_dict['states']), dtype=torch.float).to(self.device)
-        actions = torch.tensor(np.array(transition_dict['actions']), dtype=torch.float).to(self.device)
-        rewards = torch.tensor(np.array(transition_dict['rewards']), dtype=torch.float).view(-1, 1).to(self.device)
-        next_states = torch.tensor(np.array(transition_dict['next_states']), dtype=torch.float).to(self.device)
-        dones = torch.tensor(np.array(transition_dict['dones']), dtype=torch.float).view(-1, 1).to(self.device)
+        states = torch.tensor(np.array(transition_dict['states']), dtype=torch.float32).to(self.device)
+        actions = torch.tensor(np.array(transition_dict['actions']), dtype=torch.float32).to(self.device)
+        rewards = torch.tensor(np.array(transition_dict['rewards']), dtype=torch.float32).view(-1, 1).to(self.device)
+        next_states = torch.tensor(np.array(transition_dict['next_states']), dtype=torch.float32).to(self.device)
+        dones = torch.tensor(np.array(transition_dict['dones']), dtype=torch.float32).view(-1, 1).to(self.device)
 
         # 计算权重
         weights = torch.where(rewards < 0, torch.tensor(1.0), torch.tensor(1.0)).to(self.device)
@@ -216,13 +220,11 @@ class DDPG:
         next_q_values = self.target_critic(next_states, self.target_actor(next_states))
         q_targets = rewards + self.gamma * next_q_values * (1 - dones)
 
-
         critic_loss = self.critic_mse_loss.forward(self.critic(states, actions), q_targets)
         critic_loss = (critic_loss * weights).mean()  # 使用权重调整critic_loss
         self.critic_optimizer.zero_grad()
         critic_loss.backward()
         self.critic_optimizer.step()
-
 
         actor_loss = -self.critic.forward(states, self.actor(states))
         actor_loss = (actor_loss * weights).mean()  # 使用权重调整actor_loss
@@ -230,7 +232,7 @@ class DDPG:
         actor_loss.backward()
         self.actor_optimizer.step()
 
-
-
         self.soft_update(self.actor, self.target_actor)  # 软更新策略网络
         self.soft_update(self.critic, self.target_critic)  # 软更新价值网络
+
+
