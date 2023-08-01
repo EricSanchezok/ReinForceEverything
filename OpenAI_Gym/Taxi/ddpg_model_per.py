@@ -7,16 +7,79 @@ from pyinstrument import Profiler
 
 
 class ReplayBuffer:
-    def __init__(self, capacity):
+    def __init__(self, capacity, device='cpu', IF_PER=False):
         self.buffer = collections.deque(maxlen=capacity) 
+        self.device = device
 
-    def add(self, state, action, reward, next_state, done): 
-        self.buffer.append((state, action, reward, next_state, done)) 
+        self.IF_PER = IF_PER
+        self.max_td_error = None
 
+    def add(self, state, action, reward, next_state, done, ddpg_model=None):
+
+        state = torch.tensor(np.array(state), dtype=torch.float32).to(self.device).unsqueeze(0)
+        action = torch.tensor(np.array(action), dtype=torch.float32).to(self.device).unsqueeze(0)
+        next_state = torch.tensor(np.array(next_state), dtype=torch.float32).to(self.device).unsqueeze(0)
+        reward = torch.tensor(np.array(reward), dtype=torch.float32).to(self.device).unsqueeze(0)
+        done = torch.tensor(np.array(done), dtype=torch.float32).to(self.device).unsqueeze(0)
+
+        if self.IF_PER:
+            is_new_experience = True
+
+            if ddpg_model is None:  raise ValueError('model is None, but IF_PER is True')
+
+            for transition in self.buffer:
+                if torch.all(torch.eq(state, transition[0])) and torch.all(torch.eq(action, transition[1])) \
+                    and torch.all(torch.eq(reward, transition[2])) and torch.all(torch.eq(next_state, transition[3])) \
+                    and torch.all(torch.eq(done, transition[4])):
+                    is_new_experience = False
+                    break
+
+            if is_new_experience and self.max_td_error is not None:
+                td_error = self.max_td_error
+
+            else:
+                with torch.no_grad():
+                    next_q_value = ddpg_model.target_critic(next_state, ddpg_model.target_actor(next_state))
+                    q_target = reward + ddpg_model.gamma * next_q_value * (1 - done)
+                    q_value = ddpg_model.critic(state, action)
+                    td_error = torch.abs(q_target - q_value).cpu().numpy()[0][0]
+
+            self.buffer.append((state, action, reward, next_state, done, td_error))
+        else:
+            self.buffer.append((state, action, reward, next_state, done))
+
+        
     def sample(self, batch_size): 
-        transitions = random.sample(self.buffer, batch_size)
-        state, action, reward, next_state, done = zip(*transitions)
-        return np.array(state), action, reward, np.array(next_state), done 
+
+        if self.IF_PER:
+            # 对TD误差进行排序
+            self.buffer = sorted(self.buffer, key=lambda x: x[-1], reverse=True)
+            td_errors = [transition[-1] for transition in self.buffer]
+            self.max_td_error = td_errors[0]
+
+            # 计算排名的倒数
+            ranks = np.arange(len(self.buffer))
+            rank_inverse = 1 / (ranks + 1)
+
+            # 根据rank_inverse设置采样概率
+            probs = rank_inverse / np.sum(rank_inverse)
+
+            # 做softmax
+            probs = np.exp(probs) / np.sum(np.exp(probs))
+
+            # 根据概率采样经验
+            indices = np.random.choice(len(self.buffer), batch_size, p=probs)
+            transitions = [self.buffer[i] for i in indices]
+
+            # 返回采样的批次
+            state, action, reward, next_state, done, _ = zip(*transitions)
+
+        else:
+            transitions = random.sample(self.buffer, batch_size)
+            state, action, reward, next_state, done = zip(*transitions)
+        
+        
+        return state, action, reward, next_state, done 
         
 
     def size(self): 
@@ -26,6 +89,8 @@ class ReplayBuffer:
 class PolicyNet(nn.Module):
     def __init__(self, input_dim, output_dim):
         super(PolicyNet, self).__init__()
+        self.input_dim = input_dim
+        self.output_dim = output_dim
         
         self.seq1 = nn.Sequential(
             nn.Linear(input_dim, 128),
@@ -46,10 +111,11 @@ class PolicyNet(nn.Module):
             nn.Linear(64, output_dim)
         )
 
-
-        
-
     def forward(self, x):
+        if x.shape[1] != self.input_dim:
+            raise ValueError('The input dimension is not correct!')
+        if x.dtype != torch.float32:
+            raise ValueError('The input dimension is not correct!')
         x = self.seq1(x)
 
         out = self.linear(x)
@@ -150,12 +216,13 @@ class DDPG:
 
 
     def update(self, transition_dict):
-        states = torch.tensor(np.array(transition_dict['states']), dtype=torch.float32).to(self.device)
-        actions = torch.tensor(np.array(transition_dict['actions']), dtype=torch.float32).to(self.device)
-        rewards = torch.tensor(np.array(transition_dict['rewards']), dtype=torch.float32).view(-1, 1).to(self.device)
-        next_states = torch.tensor(np.array(transition_dict['next_states']), dtype=torch.float32).to(self.device)
-        dones = torch.tensor(np.array(transition_dict['dones']), dtype=torch.float32).view(-1, 1).to(self.device)
 
+        states = torch.cat(transition_dict['states'], dim=0)
+        actions = torch.cat(transition_dict['actions'], dim=0)
+        rewards = torch.cat(transition_dict['rewards'], dim=0).view(-1, 1)
+        next_states = torch.cat(transition_dict['next_states'], dim=0)
+        dones = torch.cat(transition_dict['dones'], dim=0).view(-1, 1)
+        
         # 计算权重
         weights = torch.where(rewards < 0, torch.tensor(0.05), torch.tensor(100.0)).to(self.device)
 

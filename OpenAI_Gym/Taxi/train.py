@@ -1,6 +1,6 @@
 import torch
 import gym
-from ddpg_model import ReplayBuffer, DDPG
+from ddpg_model_per import ReplayBuffer, DDPG
 from tqdm import tqdm
 import numpy as np
 
@@ -40,11 +40,10 @@ def train_off_policy_agent(env_name, replay_buffer, agent, num_episodes, max_ste
             
             action = agent.take_action(state, noise=True) * info['action_mask']
 
-
             next_state, reward, done, truncated, info = env.step(np.argmax(action))
             next_state = np.eye(500)[next_state]
 
-            replay_buffer.add(state, action, reward, next_state, done)
+            replay_buffer.add(state, action, reward, next_state, done, agent)
             state = next_state
             episode_return += reward
 
@@ -63,7 +62,7 @@ def train_off_policy_agent(env_name, replay_buffer, agent, num_episodes, max_ste
         episode_returns.append(episode_return)
 
         # Save the model
-        if i % 1 == 0:
+        if i % 100 == 0:
             torch.save(agent.actor.state_dict(), model_path[0])
             torch.save(agent.critic.state_dict(), model_path[1])
 
@@ -80,9 +79,9 @@ if __name__ == '__main__':
     max_step_per_epoch = 200
     gamma = 0.98
     tau = 0.005
-    buffer_size = 100000
+    buffer_size = 5000
     minimal_size = 1000
-    batch_size = 16
+    batch_size = 512
     sigma = 0.01
 
     env_name = 'Taxi-v3'
@@ -95,9 +94,9 @@ if __name__ == '__main__':
 
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
-    model_path = ['OpenAI_Gym/Taxi/agent/actor_v1.pth', 'OpenAI_Gym/Taxi/agent/critic_v1.pth']
+    model_path = ['OpenAI_Gym/Taxi/agent/actor_v2.pth', 'OpenAI_Gym/Taxi/agent/critic_v2.pth']
 
-    replay_buffer = ReplayBuffer(buffer_size)
+    replay_buffer = ReplayBuffer(buffer_size, device=device, IF_PER=True)
     agent = DDPG(input_dim, output_dim, random_rate, sigma, actor_lr, critic_lr, tau, gamma, device)
 
     episode_returns = train_off_policy_agent(env_name, replay_buffer, agent, num_episodes, max_step_per_epoch, minimal_size, batch_size, device, model_path)
