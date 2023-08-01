@@ -1,8 +1,28 @@
 import torch
 import gym
-from ddpg_model_per import ReplayBuffer, DDPG
+from ddpg_model import ReplayBuffer, DDPG
 from tqdm import tqdm
 import numpy as np
+
+def idx_to_coordinates(idx):
+    if idx == 0:
+        return (0, 0)
+    elif idx == 1:
+        return (0, 4)
+    elif idx == 2:
+        return (4, 0)
+    elif idx == 3:
+        return (4, 3)
+    else:
+        return 'On taxi'
+
+def get_taxi_coordinates(env):
+    taxi_row, taxi_col, passenger_idx, dest_idx = env.decode(env.s)
+    taxi_coordinates = (int(taxi_row), int(taxi_col))
+    
+    passenger_coordinates = idx_to_coordinates(passenger_idx)
+    dest_coordinates = idx_to_coordinates(dest_idx)
+    return taxi_coordinates, passenger_coordinates, dest_coordinates
 
 
 def train_off_policy_agent(env_name, replay_buffer, agent, num_episodes, max_step_per_epoch, minimal_size, batch_size, device, model_path):
@@ -43,7 +63,18 @@ def train_off_policy_agent(env_name, replay_buffer, agent, num_episodes, max_ste
             next_state, reward, done, truncated, info = env.step(np.argmax(action))
             next_state = np.eye(500)[next_state]
 
-            replay_buffer.add(state, action, reward, next_state, done, agent)
+            taxi_coordinates, passenger_coordinates, dest_coordinates = get_taxi_coordinates(env)
+
+            if passenger_coordinates == 'On taxi':
+                manhattan_distance = abs(taxi_coordinates[0] - dest_coordinates[0]) + abs(taxi_coordinates[1] - dest_coordinates[1])
+
+            else:
+                manhattan_distance = abs(taxi_coordinates[0] - passenger_coordinates[0]) + abs(taxi_coordinates[1] - passenger_coordinates[1])
+
+            # 距离越近，reward 越大
+            reward += (1 / (manhattan_distance + 1)) * 3
+
+            replay_buffer.add(state, action, reward, next_state, done)
             state = next_state
             episode_return += reward
 
@@ -79,9 +110,9 @@ if __name__ == '__main__':
     max_step_per_epoch = 200
     gamma = 0.98
     tau = 0.005
-    buffer_size = 5000
+    buffer_size = 50000
     minimal_size = 1000
-    batch_size = 512
+    batch_size = 64
     sigma = 0.01
 
     env_name = 'Taxi-v3'
@@ -94,9 +125,9 @@ if __name__ == '__main__':
 
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
-    model_path = ['OpenAI_Gym/Taxi/agent/actor_v2.pth', 'OpenAI_Gym/Taxi/agent/critic_v2.pth']
+    model_path = ['OpenAI_Gym/Taxi/agent/actor_v3.pth', 'OpenAI_Gym/Taxi/agent/critic_v3.pth']
 
-    replay_buffer = ReplayBuffer(buffer_size, device=device, IF_PER=True)
+    replay_buffer = ReplayBuffer(buffer_size)
     agent = DDPG(input_dim, output_dim, random_rate, sigma, actor_lr, critic_lr, tau, gamma, device)
 
     episode_returns = train_off_policy_agent(env_name, replay_buffer, agent, num_episodes, max_step_per_epoch, minimal_size, batch_size, device, model_path)

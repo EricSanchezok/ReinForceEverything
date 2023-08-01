@@ -157,7 +157,7 @@ class DDPG:
         dones = torch.tensor(np.array(transition_dict['dones']), dtype=torch.float32).view(-1, 1).to(self.device)
 
         # 计算权重
-        weights = torch.where(rewards < 0, torch.tensor(0.05), torch.tensor(100.0)).to(self.device)
+        weights = torch.where(rewards < 0, torch.tensor(1.0), torch.tensor(100.0)).to(self.device)
 
         next_q_values = self.target_critic(next_states, self.target_actor(next_states))
         q_targets = rewards + self.gamma * next_q_values * (1 - dones)
