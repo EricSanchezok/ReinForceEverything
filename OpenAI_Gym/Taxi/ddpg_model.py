@@ -167,13 +167,12 @@ class DDPG:
     def take_action(self, state, noise=True):
 
         if random.random() < self.random_rate and noise:
-            action = np.random.uniform(0, 1, self.output_dim)
-            action = torch.softmax(torch.tensor(action, dtype=torch.float32), dim=0).numpy()
+            action = torch.rand(self.output_dim)
         else:
             with torch.no_grad():
                 state = torch.tensor(np.array(state), dtype=torch.float32).to(self.device).unsqueeze(0)
                 state = state.to(self.device)
-                action = self.actor(state).cpu().numpy()[0]
+                action = self.actor(state).cpu()[0]
 
         return action
 

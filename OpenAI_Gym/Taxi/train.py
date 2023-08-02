@@ -55,24 +55,33 @@ def train_off_policy_agent(env_name, replay_buffer, agent, num_episodes, max_ste
 
         # 设置进度条
         pbar = tqdm(total=len(epoch_list), desc='epoch', unit='step')
+
+        is_get_on = False
         
         for step in epoch_list:
             
-            action = agent.take_action(state, noise=True) * info['action_mask']
+            action = agent.take_action(state, noise=True)
+            action = torch.softmax(action, dim=0) * info['action_mask']
+            action = action / torch.sum(action)
 
-            next_state, reward, done, truncated, info = env.step(np.argmax(action))
+            next_state, reward, done, truncated, info = env.step(torch.argmax(action).item())
             next_state = np.eye(500)[next_state]
 
             taxi_coordinates, passenger_coordinates, dest_coordinates = get_taxi_coordinates(env)
 
             if passenger_coordinates == 'On taxi':
+                
+                if is_get_on == False:
+                    reward += 20
+                    is_get_on = True
+
                 manhattan_distance = abs(taxi_coordinates[0] - dest_coordinates[0]) + abs(taxi_coordinates[1] - dest_coordinates[1])
 
             else:
                 manhattan_distance = abs(taxi_coordinates[0] - passenger_coordinates[0]) + abs(taxi_coordinates[1] - passenger_coordinates[1])
 
             # 距离越近，reward 越大
-            reward += (1 / (manhattan_distance + 1)) * 3
+            reward += (1 / (manhattan_distance + 1))
 
             replay_buffer.add(state, action, reward, next_state, done)
             state = next_state
@@ -84,7 +93,7 @@ def train_off_policy_agent(env_name, replay_buffer, agent, num_episodes, max_ste
                 agent.update(transition_dict)
 
             # 更新进度条的描述，描述当前的 episode 和 return
-            pbar.set_description('Episode={}, return={}'.format(i, round(episode_return,2)))
+            pbar.set_description('Episode={}, return={}, action={}, reward={}'.format(i, round(episode_return,3), torch.argmax(action), round(reward, 3)))
             # 更新进度条的当前值
             pbar.update(1)
 
@@ -110,9 +119,9 @@ if __name__ == '__main__':
     max_step_per_epoch = 200
     gamma = 0.98
     tau = 0.005
-    buffer_size = 50000
+    buffer_size = 20000
     minimal_size = 1000
-    batch_size = 64
+    batch_size = 32
     sigma = 0.01
 
     env_name = 'Taxi-v3'
