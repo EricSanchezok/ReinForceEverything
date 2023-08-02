@@ -63,8 +63,9 @@ def train_off_policy_agent(env_name, replay_buffer, agent, num_episodes, max_ste
             action = agent.take_action(state, noise=True)
             action = torch.softmax(action, dim=0) * info['action_mask']
             action = action / torch.sum(action)
+            action = action.numpy()
 
-            next_state, reward, done, truncated, info = env.step(torch.argmax(action).item())
+            next_state, reward, done, truncated, info = env.step(np.argmax(action))
             next_state = np.eye(500)[next_state]
 
             taxi_coordinates, passenger_coordinates, dest_coordinates = get_taxi_coordinates(env)
@@ -81,7 +82,7 @@ def train_off_policy_agent(env_name, replay_buffer, agent, num_episodes, max_ste
                 manhattan_distance = abs(taxi_coordinates[0] - passenger_coordinates[0]) + abs(taxi_coordinates[1] - passenger_coordinates[1])
 
             # 距离越近，reward 越大
-            reward += (1 / (manhattan_distance + 1))
+            reward += (1 / (manhattan_distance + 1)) * 2
 
             replay_buffer.add(state, action, reward, next_state, done)
             state = next_state
@@ -93,7 +94,7 @@ def train_off_policy_agent(env_name, replay_buffer, agent, num_episodes, max_ste
                 agent.update(transition_dict)
 
             # 更新进度条的描述，描述当前的 episode 和 return
-            pbar.set_description('Episode={}, return={}, action={}, reward={}'.format(i, round(episode_return,3), torch.argmax(action), round(reward, 3)))
+            pbar.set_description('Episode={}, return={}, action={}, reward={}'.format(i, round(episode_return,3), np.argmax(action), round(reward, 3)))
             # 更新进度条的当前值
             pbar.update(1)
 
@@ -119,9 +120,9 @@ if __name__ == '__main__':
     max_step_per_epoch = 200
     gamma = 0.98
     tau = 0.005
-    buffer_size = 20000
+    buffer_size = 50000
     minimal_size = 1000
-    batch_size = 32
+    batch_size = 64
     sigma = 0.01
 
     env_name = 'Taxi-v3'
