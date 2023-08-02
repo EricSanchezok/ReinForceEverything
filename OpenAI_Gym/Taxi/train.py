@@ -106,7 +106,7 @@ def train_off_policy_agent(env_name, replay_buffer, agent, num_episodes, max_ste
 if __name__ == '__main__':
     actor_lr = 0.0001
     critic_lr = 0.001
-    num_episodes = 20000
+    num_episodes = 50000
     max_step_per_epoch = 200
     gamma = 0.98
     tau = 0.005
@@ -125,7 +125,7 @@ if __name__ == '__main__':
 
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
-    model_path = ['OpenAI_Gym/Taxi/agent/actor_v3.pth', 'OpenAI_Gym/Taxi/agent/critic_v3.pth']
+    model_path = ['OpenAI_Gym/Taxi/agent/actor_v1.pth', 'OpenAI_Gym/Taxi/agent/critic_v1.pth']
 
     replay_buffer = ReplayBuffer(buffer_size)
     agent = DDPG(input_dim, output_dim, random_rate, sigma, actor_lr, critic_lr, tau, gamma, device)
