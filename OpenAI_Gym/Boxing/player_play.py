@@ -45,7 +45,6 @@ def monitor_keyboard():
 
     return key
         
-j
 
 
 if __name__ == '__main__':

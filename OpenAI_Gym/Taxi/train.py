@@ -1,6 +1,7 @@
 import torch
 import gym
-from ddpg_model import ReplayBuffer, DDPG
+from agent_model import DDPG
+from replay_buffer import ReplayBuffer
 from tqdm import tqdm
 import numpy as np
 
@@ -84,12 +85,12 @@ def train_off_policy_agent(env_name, replay_buffer, agent, num_episodes, max_ste
             # 距离越近，reward 越大
             reward += (1 / (manhattan_distance + 1)) * 2
 
-            replay_buffer.add(state, action, reward, next_state, done)
+            replay_buffer.add(state, action, reward, next_state, done, agent)
             state = next_state
             episode_return += reward
 
             if replay_buffer.size() > minimal_size:
-                b_s, b_a, b_r, b_ns, b_d = replay_buffer.sample(batch_size)
+                b_s, b_a, b_ns, b_r, b_d = replay_buffer.sample(batch_size)
                 transition_dict = {'states': b_s, 'actions': b_a, 'next_states': b_ns, 'rewards': b_r, 'dones': b_d}
                 agent.update(transition_dict)
 
@@ -137,7 +138,7 @@ if __name__ == '__main__':
 
     model_path = ['OpenAI_Gym/Taxi/agent/actor_v1.pth', 'OpenAI_Gym/Taxi/agent/critic_v1.pth']
 
-    replay_buffer = ReplayBuffer(buffer_size)
+    replay_buffer = ReplayBuffer(buffer_size, device=device)
     agent = DDPG(input_dim, output_dim, random_rate, sigma, actor_lr, critic_lr, tau, gamma, device)
 
     episode_returns = train_off_policy_agent(env_name, replay_buffer, agent, num_episodes, max_step_per_epoch, minimal_size, batch_size, device, model_path)
