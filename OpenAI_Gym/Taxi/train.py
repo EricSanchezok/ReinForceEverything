@@ -70,10 +70,8 @@ def train_off_policy_agent(env_name, replay_buffer, agent, num_episodes, max_ste
 
         # 设置进度条
         pbar = tqdm(total=len(epoch_list), desc='epoch', unit='step')
-
-        is_get_on = False
         
-        for step in epoch_list:
+        for _ in epoch_list:
             
             action = agent.take_action(state, noise=True)
             action = torch.softmax(action, dim=0) * info['action_mask']
@@ -97,13 +95,8 @@ def train_off_policy_agent(env_name, replay_buffer, agent, num_episodes, max_ste
             next_state = np.concatenate((next_state, coords), axis=0, dtype=np.float32)
 
             if passenger_coordinates == 'On taxi':
-                
-                if is_get_on == False:
-                    reward += 20
-                    is_get_on = True
-
-                manhattan_distance = abs(taxi_coordinates[0] - dest_coordinates[0]) + abs(taxi_coordinates[1] - dest_coordinates[1])
-
+                reward += 20
+                done = True
             else:
                 manhattan_distance = abs(taxi_coordinates[0] - passenger_coordinates[0]) + abs(taxi_coordinates[1] - passenger_coordinates[1])
 
@@ -161,7 +154,7 @@ if __name__ == '__main__':
 
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
-    model_path = ['OpenAI_Gym/Taxi/agent/actor_v1.pth', 'OpenAI_Gym/Taxi/agent/critic_v1.pth']
+    model_path = ['OpenAI_Gym/Taxi/agent/actor_v1-0.pth', 'OpenAI_Gym/Taxi/agent/critic_v1-0.pth']
 
     replay_buffer = ReplayBuffer(buffer_size, device=device)
     agent = DDPG(input_dim, output_dim, random_rate, sigma, actor_lr, critic_lr, tau, gamma, device)

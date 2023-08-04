@@ -20,14 +20,6 @@ class PolicyNet(nn.Module):
             nn.Mish()
         )
 
-        self.seq2 = nn.Sequential(
-            nn.Linear(512, 512),
-            nn.LayerNorm(512),
-            nn.Mish(),
-            nn.Linear(512, 512),
-            nn.LayerNorm(512),
-            nn.Mish()
-        )
 
         self.linear = nn.Sequential(
             nn.Linear(512, 256),
@@ -44,7 +36,6 @@ class PolicyNet(nn.Module):
     
     def forward(self, x):
         x = self.seq1(x)
-        x = self.seq2(x)
         out = self.linear(x)
 
         return out
@@ -63,15 +54,6 @@ class QValueNet(torch.nn.Module):
             nn.LayerNorm(256),
             nn.Mish(),
             nn.Linear(256, 512),
-            nn.LayerNorm(512),
-            nn.Mish()
-        )
-
-        self.seq2 = nn.Sequential(
-            nn.Linear(512, 512),
-            nn.LayerNorm(512),
-            nn.Mish(),
-            nn.Linear(512, 512),
             nn.LayerNorm(512),
             nn.Mish()
         )
@@ -102,7 +84,6 @@ class QValueNet(torch.nn.Module):
 
     def forward(self, x, a):
         x = self.seq1(x)
-        x = self.seq2(x)
         a = self.action_linear(a)
         out = torch.cat([x, a], dim=1)
         out = self.linear(out)
