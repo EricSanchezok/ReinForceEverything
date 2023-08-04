@@ -16,3 +16,17 @@ probs = np.exp(probs)
 probs /= np.sum(probs)
 
 print(probs)
+
+# a = (1, 2)
+# b = (3, 4)
+# c = (5, 6)
+
+# d = np.eye(500)[1]
+
+# combined = np.concatenate((a, b, c), axis=0, dtype=np.float32)
+
+# next_state = np.concatenate((d, combined), axis=0, dtype=np.float32)
+
+# print(combined.shape)
+# print(d.shape)
+# print(next_state.shape)

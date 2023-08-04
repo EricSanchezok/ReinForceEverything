@@ -4,9 +4,6 @@ import random
 import numpy as np
 from pyinstrument import Profiler
 
-
-
-
 class PolicyNet(nn.Module):
     def __init__(self, input_dim, output_dim):
         super(PolicyNet, self).__init__()
@@ -24,13 +21,10 @@ class PolicyNet(nn.Module):
         )
 
         self.seq2 = nn.Sequential(
-            nn.Linear(512, 1024),
-            nn.LayerNorm(1024),
+            nn.Linear(512, 512),
+            nn.LayerNorm(512),
             nn.Mish(),
-            nn.Linear(1024, 1024),
-            nn.LayerNorm(1024),
-            nn.Mish(),
-            nn.Linear(1024, 512),
+            nn.Linear(512, 512),
             nn.LayerNorm(512),
             nn.Mish()
         )
@@ -47,13 +41,10 @@ class PolicyNet(nn.Module):
             nn.Mish(),
             nn.Linear(64, output_dim)
         )
-
-
     
     def forward(self, x):
         x = self.seq1(x)
         x = self.seq2(x)
-
         out = self.linear(x)
 
         return out
@@ -77,13 +68,10 @@ class QValueNet(torch.nn.Module):
         )
 
         self.seq2 = nn.Sequential(
-            nn.Linear(512, 1024),
-            nn.LayerNorm(1024),
+            nn.Linear(512, 512),
+            nn.LayerNorm(512),
             nn.Mish(),
-            nn.Linear(1024, 1024),
-            nn.LayerNorm(1024),
-            nn.Mish(),
-            nn.Linear(1024, 512),
+            nn.Linear(512, 512),
             nn.LayerNorm(512),
             nn.Mish()
         )
@@ -116,11 +104,8 @@ class QValueNet(torch.nn.Module):
         x = self.seq1(x)
         x = self.seq2(x)
         a = self.action_linear(a)
-
         out = torch.cat([x, a], dim=1)
-
         out = self.linear(out)
-
         return out
     
 profile = Profiler()
@@ -182,7 +167,7 @@ class DDPG:
         # print('dones', dones.shape)
 
         # 计算权重
-        weights = torch.where(rewards < 0, torch.tensor(1.0), torch.tensor(100.0)).to(self.device)
+        weights = torch.where(rewards < 0, torch.tensor(1.0), torch.tensor(3.0)).to(self.device)
 
         next_q_values = self.target_critic(next_states, self.target_actor(next_states))
         q_targets = rewards + self.gamma * next_q_values * (1 - dones)

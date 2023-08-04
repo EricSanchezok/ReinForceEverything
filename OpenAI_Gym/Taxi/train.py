@@ -25,6 +25,17 @@ def get_taxi_coordinates(env):
     dest_coordinates = idx_to_coordinates(dest_idx)
     return taxi_coordinates, passenger_coordinates, dest_coordinates
 
+def process_state(state):
+    state = np.eye(500)[state]
+    state = np.exp(state)
+    state = state / np.sum(state)
+    return state
+
+def process_coordinates(taxi_coordinates, passenger_coordinates, dest_coordinates):
+    if passenger_coordinates == 'On taxi':
+        passenger_coordinates = (1e-4, 1e-4)
+    return np.concatenate((taxi_coordinates, passenger_coordinates, dest_coordinates), axis=0, dtype=np.float32)
+
 
 def train_off_policy_agent(env_name, replay_buffer, agent, num_episodes, max_step_per_epoch, minimal_size, batch_size, device, model_path):
     
@@ -50,7 +61,10 @@ def train_off_policy_agent(env_name, replay_buffer, agent, num_episodes, max_ste
     for i in range(num_episodes):
         episode_return = 0
         state, info = env.reset()
-        state = np.eye(500)[state]
+        state = process_state(state)
+        taxi_coordinates, passenger_coordinates, dest_coordinates = get_taxi_coordinates(env)
+        coords = process_coordinates(taxi_coordinates, passenger_coordinates, dest_coordinates)
+        state = np.concatenate((state, coords), axis=0, dtype=np.float32)
 
         epoch_list = range(max_step_per_epoch)
 
@@ -63,13 +77,24 @@ def train_off_policy_agent(env_name, replay_buffer, agent, num_episodes, max_ste
             
             action = agent.take_action(state, noise=True)
             action = torch.softmax(action, dim=0) * info['action_mask']
-            action = action / torch.sum(action)
             action = action.numpy()
+            # 软化action
+            action = np.exp(action)
+            action = action / np.sum(action)
 
             next_state, reward, done, truncated, info = env.step(np.argmax(action))
-            next_state = np.eye(500)[next_state]
+
+            # 稳定action
+            action = np.eye(6)[np.argmax(action)]
+            action = np.exp(action)
+            action = action / np.sum(action)
+
+            next_state = process_state(next_state)
 
             taxi_coordinates, passenger_coordinates, dest_coordinates = get_taxi_coordinates(env)
+            coords = process_coordinates(taxi_coordinates, passenger_coordinates, dest_coordinates)
+
+            next_state = np.concatenate((next_state, coords), axis=0, dtype=np.float32)
 
             if passenger_coordinates == 'On taxi':
                 
@@ -115,8 +140,8 @@ def train_off_policy_agent(env_name, replay_buffer, agent, num_episodes, max_ste
 
 
 if __name__ == '__main__':
-    actor_lr = 0.0001
-    critic_lr = 0.001
+    actor_lr = 0.00003
+    critic_lr = 0.0003
     num_episodes = 50000
     max_step_per_epoch = 200
     gamma = 0.98
@@ -128,10 +153,10 @@ if __name__ == '__main__':
 
     env_name = 'Taxi-v3'
 
-    input_dim = 500
+    input_dim = 500 + 6
     output_dim = 6
 
-    random_rate = 0.1
+    random_rate = 0.15
 
 
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
