@@ -62,11 +62,6 @@ def train_off_policy_agent(env_name, replay_buffer, agent, num_episodes, max_ste
         episode_return = 0
         state, info = env.reset()
         state = process_state(state)
-        taxi_coordinates, passenger_coordinates, dest_coordinates = get_taxi_coordinates(env)
-        coords = process_coordinates(taxi_coordinates, passenger_coordinates, dest_coordinates)
-        state = np.concatenate((state, coords), axis=0, dtype=np.float32)
-
-        action_buffer = []
 
         epoch_list = range(max_step_per_epoch)
 
@@ -76,45 +71,20 @@ def train_off_policy_agent(env_name, replay_buffer, agent, num_episodes, max_ste
         for _ in epoch_list:
             
             action = agent.take_action(state, noise=True)
-            action = torch.softmax(action, dim=0) * info['action_mask']
-            action = action.numpy()
-            # 软化action
-            action = np.exp(action)
-            action = action / np.sum(action)
-
+            action = torch.softmax(action, dim=0).numpy()
 
             next_state, reward, done, truncated, info = env.step(np.argmax(action))
 
-            # 稳定action
-            action = np.eye(6)[np.argmax(action)]
-            action = np.exp(action)
-            action = action / np.sum(action)
+            # if info['action_mask'][np.argmax(action)] == 0:
+            #     reward -= 10
 
             next_state = process_state(next_state)
 
-            taxi_coordinates, passenger_coordinates, dest_coordinates = get_taxi_coordinates(env)
-            coords = process_coordinates(taxi_coordinates, passenger_coordinates, dest_coordinates)
-
-            next_state = np.concatenate((next_state, coords), axis=0, dtype=np.float32)
+            _, passenger_coordinates, _ = get_taxi_coordinates(env)
 
             if passenger_coordinates == 'On taxi':
                 reward += 20
                 done = True
-            else:
-                manhattan_distance = abs(taxi_coordinates[0] - passenger_coordinates[0]) + abs(taxi_coordinates[1] - passenger_coordinates[1])
-
-            # 距离越近，reward 越大
-            reward += (1 / (manhattan_distance + 3))
-
-            # 做出和上上次的动作一样的动作，reward 减 0.5
-            # 防止agent反复横跳
-            if len(action_buffer) == 2:
-                if np.argmax(action) == action_buffer[0]:
-                    reward -= 0.5
-
-            action_buffer.append(np.argmax(action))
-            if len(action_buffer) > 2:
-                action_buffer.pop(0)
 
             replay_buffer.add(state, action, reward, next_state, done, agent)
             state = next_state
@@ -146,20 +116,20 @@ def train_off_policy_agent(env_name, replay_buffer, agent, num_episodes, max_ste
 
 
 if __name__ == '__main__':
-    actor_lr = 0.00003
-    critic_lr = 0.0003
-    num_episodes = 50000
+    actor_lr = 0.0001
+    critic_lr = 0.001
+    num_episodes = 20000
     max_step_per_epoch = 200
     gamma = 0.98
     tau = 0.005
-    buffer_size = 50000
+    buffer_size = 20000
     minimal_size = 1000
     batch_size = 64
     sigma = 0.01
 
     env_name = 'Taxi-v3'
 
-    input_dim = 500 + 6
+    input_dim = 500
     output_dim = 6
 
     random_rate = 0.15

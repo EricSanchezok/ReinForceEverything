@@ -1,6 +1,40 @@
 import numpy as np
 import torch
-from pyinstrument import Profiler
+
+# class ReplayBuffer:
+#     def __init__(self, capacity, device='cpu'):
+#         self.buffer = [] 
+#         self.device = device
+#         self.capacity = capacity
+
+#     def add(self, state, action, reward, next_state, done, agent_model=None): 
+
+#         sample = SingleSample(state, action, reward, next_state, done, device=self.device) 
+
+#         self.buffer.append(sample)
+    
+#         # 如果缓冲区超过容量，删除最老的样本
+#         if len(self.buffer) > self.capacity:
+#             self.buffer.pop(0)
+#             self.td_error_buffer.pop(0)
+
+#     def sample(self, batch_size): 
+#         # 从优先级队列中根据概率选择样本
+#         selected_indices = np.random.choice(len(self.buffer), batch_size)
+#         selected_samples = [self.buffer[idx] for idx in selected_indices]
+        
+#         grouped_samples = list(zip(*[(sample.state, sample.action, sample.next_state, sample.reward, sample.done) for sample in selected_samples]))
+
+#         output_samples = []
+#         for i in range(5):
+#             output_samples.append(torch.stack(grouped_samples[i], dim=0).squeeze(1))
+
+        
+#         return output_samples[0], output_samples[1], output_samples[2], output_samples[3], output_samples[4]
+        
+
+#     def size(self): 
+#         return len(self.buffer)
     
 
 class SingleSample:
