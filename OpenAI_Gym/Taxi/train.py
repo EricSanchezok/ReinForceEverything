@@ -66,6 +66,8 @@ def train_off_policy_agent(env_name, replay_buffer, agent, num_episodes, max_ste
         coords = process_coordinates(taxi_coordinates, passenger_coordinates, dest_coordinates)
         state = np.concatenate((state, coords), axis=0, dtype=np.float32)
 
+        action_buffer = []
+
         epoch_list = range(max_step_per_epoch)
 
         # 设置进度条
@@ -79,6 +81,7 @@ def train_off_policy_agent(env_name, replay_buffer, agent, num_episodes, max_ste
             # 软化action
             action = np.exp(action)
             action = action / np.sum(action)
+
 
             next_state, reward, done, truncated, info = env.step(np.argmax(action))
 
@@ -101,7 +104,17 @@ def train_off_policy_agent(env_name, replay_buffer, agent, num_episodes, max_ste
                 manhattan_distance = abs(taxi_coordinates[0] - passenger_coordinates[0]) + abs(taxi_coordinates[1] - passenger_coordinates[1])
 
             # 距离越近，reward 越大
-            reward += (1 / (manhattan_distance + 1)) * 2
+            reward += (1 / (manhattan_distance + 3))
+
+            # 做出和上上次的动作一样的动作，reward 减 0.5
+            # 防止agent反复横跳
+            if len(action_buffer) == 2:
+                if np.argmax(action) == action_buffer[0]:
+                    reward -= 0.5
+
+            action_buffer.append(np.argmax(action))
+            if len(action_buffer) > 2:
+                action_buffer.pop(0)
 
             replay_buffer.add(state, action, reward, next_state, done, agent)
             state = next_state
